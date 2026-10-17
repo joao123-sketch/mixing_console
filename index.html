@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mixing Console</title>
+<style>
+  @font-face { font-family: 'PT Sans'; src: url(/fonts/PTSans-Regular.ttf); font-weight: 400; }
+  @font-face { font-family: 'PT Sans'; src: url(/fonts/PTSans-Bold.ttf); font-weight: 700; }
+  @font-face { font-family: 'PT Sans'; src: url(/fonts/PTSans-Italic.ttf); font-weight: 400; font-style: italic; }
+
+  :root {
+    --bg: #07070d; --glass: rgba(255,255,255,.035); --glass2: rgba(255,255,255,.06);
+    --line: rgba(255,255,255,.08); --line2: rgba(255,255,255,.16);
+    --text: #f3f1fa; --muted: #8d8aa3; --dim: #55536a;
+    --a1: #8b5cff; --a2: #ff4d8d; --grad: linear-gradient(135deg, var(--a1), var(--a2));
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 15px/1.45 'PT Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  button:disabled { opacity: .3; cursor: default; }
+
+  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+  .bg::before, .bg::after { content: ''; position: absolute; width: 60vw; height: 60vw; border-radius: 50%; filter: blur(120px); opacity: .22; }
+  .bg::before { background: var(--a1); top: -25vw; right: -10vw; }
+  .bg::after { background: var(--a2); bottom: -35vw; left: 10vw; opacity: .12; }
+
+  .app { display: grid; grid-template-columns: 290px 1fr; height: 100vh; }
+
+  /* ---------- barra lateral ---------- */
+  aside { border-right: 1px solid var(--line); background: rgba(10,10,18,.6); backdrop-filter: blur(20px); display: flex; flex-direction: column; min-height: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 26px 24px 22px; font-size: 21px; letter-spacing: 3px; text-transform: uppercase; }
+  .brand b { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand svg { width: 28px; height: 28px; }
+  .add { margin: 0 18px 22px; padding: 13px; border-radius: 14px; background: var(--grad); font-weight: 700; font-size: 15px; letter-spacing: .3px; box-shadow: 0 8px 30px -8px var(--a1); transition: transform .15s, box-shadow .15s; }
+  .add:hover { transform: translateY(-1px); box-shadow: 0 12px 34px -8px var(--a2); }
+  .side-label { padding: 0 24px 8px; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--dim); font-weight: 700; }
+  #songs { overflow-y: auto; flex: 1; padding: 0 12px 12px; }
+  .song { position: relative; padding: 11px 14px; border-radius: 12px; cursor: pointer; margin-bottom: 2px; transition: background .15s; }
+  .song:hover { background: var(--glass2); }
+  .song.active { background: var(--glass2); box-shadow: inset 3px 0 0 var(--a2); }
+  .song .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px; font-weight: 700; }
+  .song .s { font-size: 12.5px; color: var(--muted); }
+  .song .mini { height: 3px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; }
+  .song .mini div { height: 100%; background: var(--grad); transition: width .5s; }
+  .song .del { position: absolute; right: 10px; top: 10px; color: var(--dim); opacity: 0; font-size: 13px; padding: 2px 5px; }
+  .song:hover .del { opacity: 1; }
+  .song .del:hover { color: var(--a2); }
+  .side-foot { padding: 16px 24px; font-size: 12px; color: var(--dim); border-top: 1px solid var(--line); }
+
+  /* ---------- área principal ---------- */
+  main { overflow-y: auto; padding: 34px 44px 50px; }
+  .glass { background: var(--glass); border: 1px solid var(--line); border-radius: 24px; backdrop-filter: blur(16px); }
+
+  .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 26px; flex-wrap: wrap; }
+  .eyebrow { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--a2); font-weight: 700; }
+  h2 { margin: 4px 0 2px; font-size: 44px; line-height: 1.05; letter-spacing: -.5px; word-break: break-word; }
+  .sub { color: var(--muted); }
+  .export { display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 14px; border: 1px solid var(--line2); }
+  .export span { padding: 0 10px 0 12px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .export button { padding: 9px 16px; border-radius: 10px; font-weight: 700; background: var(--glass2); transition: background .15s; }
+  .export button:hover:not(:disabled) { background: var(--grad); }
+
+  .deck { padding: 22px 24px 16px; margin-bottom: 26px; }
+  #wave { width: 100%; height: 130px; display: block; cursor: pointer; }
+  .deck-bar { display: flex; align-items: center; gap: 18px; margin-top: 16px; flex-wrap: wrap; }
+  .play { width: 62px; height: 62px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; box-shadow: 0 10px 30px -6px var(--a1); transition: transform .15s; flex-shrink: 0; }
+  .play:hover { transform: scale(1.06); }
+  .play svg { width: 24px; height: 24px; fill: #fff; }
+  .time { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .time .dur { color: var(--dim); }
+  .spacer { flex: 1; }
+  .tone { display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 14px; border: 1px solid var(--line2); }
+  .tone .lbl { padding: 0 8px 0 10px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tone button { width: 34px; height: 34px; border-radius: 10px; background: var(--glass2); font-size: 18px; font-weight: 700; transition: background .15s; }
+  .tone button:hover:not(:disabled) { background: var(--line2); }
+  #semi { min-width: 44px; text-align: center; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #semi.changed { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .switch { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; cursor: pointer; user-select: none; }
+  .switch input { display: none; }
+  .switch .knob { width: 40px; height: 22px; border-radius: 11px; background: var(--line2); position: relative; transition: background .2s; }
+  .switch .knob::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch input:checked + .knob { background: var(--a1); }
+  .switch input:checked + .knob::after { transform: translateX(18px); }
+  #semiStatus { min-height: 20px; margin-top: 10px; font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--line2); border-top-color: var(--a2); animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- pads de instrumento ---------- */
+  .pads { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+  @media (max-width: 1400px) { .pads { grid-template-columns: repeat(4, 1fr); } }
+  .pad { --lvl: 0; position: relative; aspect-ratio: 1 / 1.08; border-radius: 26px; padding: 18px 16px 16px; cursor: pointer; user-select: none;
+         display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; overflow: hidden;
+         background: var(--glass); border: 1px solid var(--line); transition: transform .12s, border-color .25s, opacity .25s; }
+  .pad::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 38%, var(--c), transparent 70%); opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .pad.on { border-color: color-mix(in srgb, var(--c) 55%, transparent); box-shadow: 0 0 calc(12px + var(--lvl) * 50px) -6px var(--c); }
+  .pad.on::before { opacity: calc(.13 + var(--lvl) * .3); }
+  .pad:hover { transform: translateY(-3px); }
+  .pad:active { transform: scale(.97); }
+  .pad .icon { position: relative; flex: 1; width: 100%; display: grid; place-items: center; }
+  .pad .icon svg { width: 58%; max-width: 92px; color: var(--dim); transition: color .25s, transform .25s, filter .25s; transform: scale(.92); }
+  .pad.on .icon svg { color: var(--c); transform: scale(calc(1 + var(--lvl) * .08)); filter: drop-shadow(0 0 calc(var(--lvl) * 14px) var(--c)); }
+  .pad .name { position: relative; font-size: 19px; line-height: 1.15; text-align: center; font-weight: 700; color: var(--muted); transition: color .25s; }
+  .pad.on .name { color: var(--text); }
+  .pad .state { position: relative; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 700; color: var(--dim); margin-bottom: 8px; }
+  .pad.on .state { color: var(--c); }
+  .pad .key { position: absolute; left: 14px; top: 12px; font-size: 12px; color: var(--dim); font-weight: 700; border: 1px solid var(--line2); border-radius: 6px; padding: 0 6px; }
+  .pad .solo { position: absolute; right: 10px; top: 10px; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: var(--dim); transition: background .15s, color .15s; z-index: 1; }
+  .pad .solo:hover { background: var(--glass2); color: var(--text); }
+  .pad .solo.active { background: var(--c); color: #0b0a12; }
+  .pad .solo svg { width: 18px; height: 18px; }
+  .pad .vol { position: relative; width: 100%; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; cursor: ew-resize; z-index: 1;
+              background: linear-gradient(to right, var(--c) var(--p, 66%), var(--line2) var(--p, 66%)); opacity: .35; transition: opacity .25s; }
+  .pad.on .vol { opacity: 1; }
+  .pad .vol::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,.3); }
+  .pad .vol::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; }
+
+  .quick { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .quick button { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line2); font-weight: 700; font-size: 14px; transition: background .15s; }
+  .quick button:hover { background: var(--glass2); }
+  .quick .hint { margin-left: auto; color: var(--dim); font-size: 13px; }
+  kbd { font: inherit; font-size: 12px; border: 1px solid var(--line2); border-radius: 5px; padding: 0 5px; color: var(--muted); }
+
+  /* ---------- estados vazios / processando ---------- */
+  .center { min-height: calc(100vh - 84px); display: grid; place-items: center; text-align: center; }
+  .dropzone { width: min(620px, 100%); padding: 60px 40px; border-radius: 32px; border: 2px dashed var(--line2); cursor: pointer; transition: border-color .2s, background .2s; }
+  .dropzone:hover { border-color: var(--a1); background: var(--glass); }
+  .dropzone .icons { display: flex; justify-content: center; gap: 14px; margin-bottom: 26px; }
+  .dropzone .icons svg { width: 44px; height: 44px; }
+  .dropzone h3 { font-size: 34px; margin: 0 0 8px; }
+  .dropzone p { color: var(--muted); margin: 0; }
+  .eq { display: flex; gap: 6px; height: 64px; align-items: flex-end; justify-content: center; margin-bottom: 26px; }
+  .eq i { width: 10px; border-radius: 5px; background: var(--grad); animation: eq 1s ease-in-out infinite; }
+  @keyframes eq { 0%,100% { height: 20%; } 50% { height: 100%; } }
+  .pct { font-size: 64px; font-weight: 700; line-height: 1; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .bar { width: 380px; max-width: 80vw; height: 6px; border-radius: 3px; background: var(--line); margin: 20px auto 12px; overflow: hidden; }
+  .bar div { height: 100%; background: var(--grad); transition: width .5s; }
+  .muted { color: var(--muted); }
+
+  #dropOverlay { position: fixed; inset: 0; z-index: 10; display: none; place-items: center; background: rgba(7,7,13,.85); backdrop-filter: blur(8px); font-size: 36px; font-weight: 700; }
+  #dropOverlay.show { display: grid; }
+  #dropOverlay div { padding: 60px 90px; border: 3px dashed var(--a2); border-radius: 32px; }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    aside { display: none; }
+    main { padding: 24px 18px; }
+    h2 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <svg viewBox="0 0 28 28"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#8b5cff"/><stop offset="1" stop-color="#ff4d8d"/></linearGradient></defs>
+        <g fill="url(#lg)"><rect x="2" y="10" width="4" height="8" rx="2"/><rect x="8" y="5" width="4" height="18" rx="2"/><rect x="14" y="1" width="4" height="26" rx="2"/><rect x="20" y="7" width="4" height="14" rx="2"/></g></svg>
+      <span>Mixing <b>Console</b></span>
+    </div>
+    <button class="add" id="addBtn">+ Nova música</button>
+    <div class="side-label">Biblioteca</div>
+    <div id="songs"></div>
+    <div class="side-foot">Separação local com IA · grátis</div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="dropOverlay"><div>Solte para separar 🎶</div></div>
+<input type="file" id="file" accept="audio/*" hidden>
+
+<script>
+// ---------- instrumentos ----------
+const ORDER = ['vocals', 'guitar', 'bass', 'drums', 'piano', 'winds', 'other'];
+const COLORS = { vocals: '#ff4d8d', guitar: '#b26bff', bass: '#2ee6a6', drums: '#ff9f1c', piano: '#3db8ff', winds: '#ff5a4e', other: '#ffe066' };
+const svg = (body, vb = '0 0 48 48') =>
+  `<svg viewBox="${vb}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const ICONS = {
+  vocals: svg(`<rect x="17" y="4" width="14" height="24" rx="7"/><path d="M17 13h4M17 18h4"/><path d="M11 21v1a13 13 0 0 0 26 0v-1"/><path d="M24 35v8M17 43h14"/>`),
+  guitar: svg(`<g transform="rotate(-35 24 24)"><path d="M24 19c-5 0-8 3-8 7 0 2 1.2 3.3 1.2 4.4 0 1.2-3.2 2.6-3.2 7 0 5 4.3 8.6 10 8.6s10-3.6 10-8.6c0-4.4-3.2-5.8-3.2-7 0-1.1 1.2-2.4 1.2-4.4 0-4-3-7-8-7z"/><circle cx="24" cy="31" r="3"/><path d="M22.5 19V6h3v13"/><path d="M21 1.5h6v4.5h-6z"/><path d="M20.5 40.5h7"/></g>`, '-3 -3 54 54'),
+  bass: svg(`<g transform="rotate(38 24 24)"><path d="M22.6 28V7h2.8v21"/><path d="M22.6 7l-.8-6h4.4l-.8 6"/><path d="M21.6 2.2h-2.4M21.9 4.6h-2.4M26.4 2.2h2.4M26.1 4.6h2.4"/><path d="M22 28c-1.5-4-4.5-6.5-6.5-5.5S16 27 16 29.5s-3.5 3.5-3.5 7.5c0 5 5 8.5 11.5 8.5S35.5 42 35.5 37c0-4-3.5-5-3.5-7.5s2.5-6-.5-7S27.5 24 26 28"/><path d="M20 33h8M20 39h8"/></g>`, '-4 -4 56 56'),
+  drums: svg(`<path d="M12 4l9 15M36 4l-9 15"/><ellipse cx="24" cy="24" rx="16" ry="5.5"/><path d="M8 24v12c0 3 7.2 5.5 16 5.5s16-2.5 16-5.5V24"/><path d="M15 29v10.5M24 29.5v12M33 29v10.5"/>`),
+  piano: svg(`<rect x="3" y="11" width="42" height="26" rx="3"/><path d="M11.4 23v14M19.8 23v14M28.2 23v14M36.6 23v14"/><path fill="currentColor" stroke="none" d="M9.2 11h4.4v12H9.2zM17.6 11h4.4v12h-4.4zM34.4 11h4.4v12h-4.4z"/>`),
+  winds: svg(`<path d="M8 5h5l9 6"/><path d="M22 11c2 2 3 4 3 7v15a5.5 5.5 0 0 0 11 0v-6"/><path d="M31.5 27h9l2-6h-13z"/><path d="M25 21h3.5M25 26h3.5M25 31h3.5"/>`),
+  other: svg(`<path d="M3 24h5l3-7 4 16 4-24 4 30 4-22 4 14 3-7h11"/>`),
+};
+const HEADPHONES = svg(`<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4.5" height="7" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5"/>`, '0 0 24 24');
+const PLAY = `<svg viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg>`;
+const PAUSE = `<svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg>`;
+const STATUS = { queued: 'Na fila', loading_model: 'Preparando a IA…', separating: 'Separando instrumentos', separating_winds: 'Separando sopros', done: 'Pronta', error: 'Erro' };
+
+let LABELS = {};
+let songs = [];
+let current = null;          // meta da música aberta
+let player = null;           // estado de áudio da música aberta
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const isSeparating = s => s.status === 'separating' || s.status === 'separating_winds';
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+// ---------- biblioteca ----------
+async function refresh() {
+  songs = await (await fetch('/api/songs')).json();
+  renderList();
+  if (current) {
+    const fresh = songs.find(s => s.id === current.id);
+    if (fresh && fresh.status === 'done' && current.status !== 'done') openSong(fresh.id);
+    else if (fresh && fresh.status !== 'done') { current = fresh; renderStatus(); }
+  } else if (!player) renderEmpty();
+  if (songs.some(s => s.status !== 'done' && s.status !== 'error')) setTimeout(refresh, 1500);
+}
+
+function renderList() {
+  const el = $('songs');
+  el.innerHTML = songs.length ? '' : '<div class="muted" style="padding:8px 14px;font-size:13.5px">Nenhuma música ainda.</div>';
+  for (const s of songs) {
+    const div = document.createElement('div');
+    div.className = 'song' + (current && current.id === s.id ? ' active' : '');
+    const busy = s.status !== 'done' && s.status !== 'error';
+    const st = isSeparating(s) ? `Separando · ${Math.round(s.progress * 100)}%`
+             : s.status === 'done' && s.duration ? fmt(s.duration) : STATUS[s.status];
+    div.innerHTML = `<span class="t" title="${esc(s.title)}">${esc(s.title)}</span><span class="s">${st}</span>
+      ${busy ? `<div class="mini"><div style="width:${Math.max(3, s.progress * 100)}%"></div></div>` : ''}
+      <button class="del" title="Excluir">✕</button>`;
+    div.onclick = () => openSong(s.id);
+    div.querySelector('.del').onclick = async e => {
+      e.stopPropagation();
+      if (!confirm(`Excluir "${s.title}"?`)) return;
+      const r = await fetch(`/api/songs/${s.id}`, { method: 'DELETE' });
+      if (!r.ok) return alert((await r.json()).detail);
+      if (current && current.id === s.id) { stopPlayer(); current = null; history.replaceState(null, '', '#'); }
+      refresh();
+    };
+    el.appendChild(div);
+  }
+}
+
+// ---------- upload ----------
+const fileInput = $('file');
+$('addBtn').onclick = () => fileInput.click();
+fileInput.onchange = () => fileInput.files[0] && upload(fileInput.files[0]);
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; $('dropOverlay').classList.add('show'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('dropOverlay').classList.remove('show'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; $('dropOverlay').classList.remove('show');
+  e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]);
+});
+
+async function upload(file) {
+  stopPlayer();
+  current = { title: file.name.replace(/\.[^.]+$/, ''), status: 'queued', progress: 0 };
+  renderStatus('Enviando…');
+  const fd = new FormData(); fd.append('file', file);
+  const meta = await (await fetch('/api/upload', { method: 'POST', body: fd })).json();
+  fileInput.value = '';
+  current = meta;
+  await refresh();
+}
+
+// ---------- telas ----------
+function renderEmpty() {
+  $('main').innerHTML = `<div class="center"><div class="dropzone" id="dz">
+    <div class="icons">${ORDER.map(s => `<span style="color:${COLORS[s]}">${ICONS[s]}</span>`).join('')}</div>
+    <h3>Arraste uma música aqui</h3>
+    <p>MP3, WAV, FLAC… A IA separa vozes, violão e guitarra, baixo, bateria, teclado e sopros.</p>
+  </div></div>`;
+  $('dz').onclick = () => fileInput.click();
+}
+
+function renderStatus(msg) {
+  const s = current, pct = Math.round((s.progress || 0) * 100);
+  if (s.status === 'error') {
+    $('main').innerHTML = `<div class="center"><div><h2>${esc(s.title)}</h2>
+      <p style="color:var(--a2)">Não foi possível separar esta música.</p><p class="muted">${esc(s.error || '')}</p></div></div>`;
+    return;
+  }
+  $('main').innerHTML = `<div class="center"><div>
+    <div class="eq">${Array.from({ length: 9 }, (_, i) => `<i style="animation-delay:${-i * .13}s"></i>`).join('')}</div>
+    <div class="eyebrow">${msg || STATUS[s.status]}</div>
+    <h2 style="margin:8px 0 18px">${esc(s.title)}</h2>
+    ${isSeparating(s) ? `<div class="pct">${pct}%</div>` : ''}
+    <div class="bar"><div style="width:${isSeparating(s) ? pct : 2}%"></div></div>
+    <div class="muted">No processador leva alguns minutos. Pode deixar rodando e ouvir outra música.</div>
+  </div></div>`;
+}
+
+// ---------- abrir música ----------
+async function openSong(id) {
+  stopPlayer();
+  current = songs.find(s => s.id === id) || await (await fetch(`/api/songs/${id}`)).json();
+  history.replaceState(null, '', '#' + id);
+  renderList();
+  if (current.status !== 'done') return renderStatus();
+
+  $('main').innerHTML = `<div class="center"><div><div class="eq">${'<i></i>'.repeat(5)}</div><div class="muted">Carregando faixas…</div></div></div>`;
+  const stems = ORDER.filter(s => current.stems.includes(s)).concat(current.stems.filter(s => !ORDER.includes(s)));
+  const ctx = new AudioContext();
+  const buffers = await fetchBuffers(ctx, id, stems, 0, false);
+  if (!current || current.id !== id) return ctx.close();
+
+  const master = ctx.createGain(); master.connect(ctx.destination);
+  player = {
+    ctx, master, duration: buffers[0].duration, offset: 0, startAt: 0, playing: false, sources: [],
+    semitones: 0, transposeDrums: false, loadToken: 0, hover: null,
+    tracks: stems.map((st, i) => {
+      const gain = ctx.createGain(), analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      gain.connect(analyser); analyser.connect(master);
+      return { stem: st, buffer: buffers[i], semitones: 0, gain, analyser, volume: 1, on: true, vis: 1, lvl: 0 };
+    }),
+  };
+  player.scratch = new Float32Array(512);
+  renderPlayer();
+}
+
+// a bateria só é transposta se o usuário pedir (mesma regra do servidor)
+const stemSemitones = (stem, semitones, drums) => stem !== 'drums' || drums ? semitones : 0;
+
+function fetchBuffers(ctx, id, stems, semitones, drums) {
+  return Promise.all(stems.map(async st => {
+    const r = await fetch(`/api/songs/${id}/stems/${st}.flac?semitones=${stemSemitones(st, semitones, drums)}`);
+    if (!r.ok) throw new Error(`Falha ao carregar ${st}`);
+    return ctx.decodeAudioData(await r.arrayBuffer());
+  }));
+}
+
+// ---------- player ----------
+function renderPlayer() {
+  $('main').innerHTML = `
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Tocando agora</div>
+        <h2>${esc(current.title)}</h2>
+        <div class="sub">${player.tracks.length} faixas separadas · ${fmt(player.duration)}</div>
+      </div>
+      <div class="export"><span>Exportar</span><button id="expMp3">MP3</button><button id="expWav">WAV</button></div>
+    </header>
+    <section class="deck glass">
+      <canvas id="wave"></canvas>
+      <div class="deck-bar">
+        <button class="play" id="play" title="Play / Pause (espaço)">${PLAY}</button>
+        <div class="time"><span id="cur">0:00</span> <span class="dur">/ ${fmt(player.duration)}</span></div>
+        <div class="spacer"></div>
+        <div class="tone" title="Muda o tom sem mudar a velocidade">
+          <span class="lbl">Tom</span>
+          <button id="semiDown" title="Descer meio tom (↓)">−</button>
+          <span id="semi">0</span>
+          <button id="semiUp" title="Subir meio tom (↑)">+</button>
+          <button id="semiReset" title="Tom original" style="font-size:15px">↺</button>
+        </div>
+        <label class="switch" title="Bateria não tem tom definido; normalmente fica como está">
+          <input type="checkbox" id="drumsT"><span class="knob"></span>Bateria acompanha o tom
+        </label>
+      </div>
+      <div id="semiStatus"></div>
+    </section>
+    <section class="pads" id="pads"></section>
+    <div class="quick">
+      <button id="allOn">Ligar tudo</button>
+      <button id="invert">Inverter</button>
+      <span class="hint">Clique liga/desliga · ${HEADPHONES.replace('<svg', '<svg style="width:14px;height:14px;vertical-align:-2px"')} ou <kbd>Shift</kbd>+clique ouve só ele · <kbd>1</kbd>–<kbd>${player.tracks.length}</kbd> atalhos</span>
+    </div>`;
+
+  player.tracks.forEach((t, i) => {
+    const pad = document.createElement('div');
+    pad.className = 'pad';
+    pad.style.setProperty('--c', COLORS[t.stem] || '#aaa');
+    pad.innerHTML = `
+      <span class="key">${i + 1}</span>
+      <button class="solo" title="Ouvir só este">${HEADPHONES}</button>
+      <div class="icon">${ICONS[t.stem] || ICONS.other}</div>
+      <div class="name">${esc(LABELS[t.stem] || t.stem)}</div>
+      <div class="state"></div>
+      <input class="vol" type="range" min="0" max="150" value="100" title="Volume">`;
+    t.pad = pad;
+    pad.onclick = e => e.shiftKey ? solo(t) : toggle(t);
+    const vol = pad.querySelector('.vol');
+    for (const ev of ['click', 'pointerdown']) vol.addEventListener(ev, e => e.stopPropagation());
+    vol.oninput = () => { t.volume = vol.value / 100; if (!t.on && t.volume > 0) t.on = true; applyGains(); };
+    vol.ondblclick = () => { t.volume = 1; applyGains(); };
+    pad.querySelector('.solo').onclick = e => { e.stopPropagation(); solo(t); };
+    $('pads').appendChild(pad);
+  });
+
+  $('play').onclick = togglePlay;
+  $('semiDown').onclick = () => setTranspose(player.semitones - 1, player.transposeDrums);
+  $('semiUp').onclick = () => setTranspose(player.semitones + 1, player.transposeDrums);
+  $('semiReset').onclick = () => setTranspose(0, player.transposeDrums);
+  $('drumsT').onchange = e => setTranspose(player.semitones, e.target.checked);
+  $('allOn').onclick = () => { player.tracks.forEach(t => t.on = true); applyGains(); };
+  $('invert').onclick = () => { player.tracks.forEach(t => t.on = !t.on); applyGains(); };
+  $('expMp3').onclick = () => exportMix('mp3');
+  $('expWav').onclick = () => exportMix('wav');
+
+  const wave = $('wave');
+  wave.onclick = e => { const r = wave.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * player.duration); };
+  wave.onmousemove = e => { const r = wave.getBoundingClientRect(); player.hover = (e.clientX - r.left) / r.width; };
+  wave.onmouseleave = () => player.hover = null;
+
+  renderTranspose();
+  applyGains();
+  computePeaks();
+  tick();
+}
+
+function toggle(t) { t.on = !t.on; if (t.on && t.volume === 0) t.volume = 1; applyGains(); }
+
+// "ouvir só este": se ele já é o único ligado, liga todos de novo
+function solo(t) {
+  const alone = t.on && player.tracks.every(x => x === t || !x.on);
+  player.tracks.forEach(x => x.on = alone || x === t);
+  applyGains();
+}
+
+const effectiveGain = t => t.on ? t.volume : 0;
+
+function applyGains() {
+  const onCount = player.tracks.filter(t => t.on).length;
+  for (const t of player.tracks) {
+    t.gain.gain.setTargetAtTime(effectiveGain(t), player.ctx.currentTime, 0.02);
+    t.pad.classList.toggle('on', t.on);
+    t.pad.querySelector('.state').textContent = t.on ? (t.volume === 1 ? 'Ligado' : `${Math.round(t.volume * 100)}%`) : 'Desligado';
+    t.pad.querySelector('.solo').classList.toggle('active', t.on && onCount === 1 && player.tracks.length > 1);
+    const vol = t.pad.querySelector('.vol');
+    vol.value = Math.round(t.volume * 100);
+    vol.style.setProperty('--p', `${t.volume / 1.5 * 100}%`);
+  }
+}
+
+// ---------- forma de onda (empilhada por instrumento) ----------
+const BAR = 3, GAP = 2;
+
+function computePeaks() {
+  const c = $('wave');
+  if (!c) return;
+  c.width = c.clientWidth * devicePixelRatio; c.height = c.clientHeight * devicePixelRatio;
+  const bars = Math.floor(c.width / ((BAR + GAP) * devicePixelRatio));
+  for (const t of player.tracks) {
+    const a = t.buffer.getChannelData(0), b = t.buffer.numberOfChannels > 1 ? t.buffer.getChannelData(1) : a;
+    const step = Math.floor(a.length / bars), peaks = new Float32Array(bars);
+    for (let i = 0; i < bars; i++) {
+      let sum = 0, n = 0;
+      for (let j = i * step, end = j + step; j < end; j += 24) { const v = (a[j] + b[j]) / 2; sum += v * v; n++; }
+      peaks[i] = Math.sqrt(sum / Math.max(1, n));
+    }
+    t.peaks = peaks;
+  }
+  let max = 0;
+  for (let i = 0; i < bars; i++) max = Math.max(max, player.tracks.reduce((s, t) => s + t.peaks[i], 0));
+  player.peakMax = max || 1;
+  player.bars = bars;
+}
+
+function drawWave(pos) {
+  const c = $('wave'), g = c.getContext('2d'), W = c.width, H = c.height, mid = H / 2, d = devicePixelRatio;
+  g.clearRect(0, 0, W, H);
+  const playedX = pos / player.duration * W;
+  const bw = BAR * d, step = (BAR + GAP) * d;
+  for (let i = 0; i < player.bars; i++) {
+    const x = i * step;
+    g.globalAlpha = x + bw <= playedX ? 1 : .28;
+    let acc = 0;
+    for (const t of player.tracks) {
+      const h = t.peaks[i] * t.vis / player.peakMax * (H * .48);
+      if (h < .3) continue;
+      g.fillStyle = COLORS[t.stem] || '#aaa';
+      g.fillRect(x, mid - acc - h, bw, h);
+      g.fillRect(x, mid + acc, bw, h);
+      acc += h;
+    }
+    if (acc < d) { g.fillStyle = '#ffffff22'; g.fillRect(x, mid - d / 2, bw, d); }
+  }
+  g.globalAlpha = 1;
+  g.fillStyle = '#fff';
+  g.fillRect(playedX - d, 0, 2 * d, H);
+  if (player.hover != null) {
+    const hx = player.hover * W;
+    g.fillStyle = '#ffffff55'; g.fillRect(hx - d / 2, 0, d, H);
+    g.font = `700 ${12 * d}px 'PT Sans'`; g.fillStyle = '#fff';
+    const label = fmt(player.hover * player.duration);
+    g.fillText(label, Math.min(hx + 6 * d, W - g.measureText(label).width - 2 * d), 14 * d);
+  }
+}
+
+// ---------- transporte ----------
+const position = () => !player ? 0 : player.playing ? player.ctx.currentTime - player.startAt : player.offset;
+
+function play() {
+  const p = player;
+  p.ctx.resume();
+  if (p.offset >= p.duration - 0.05) p.offset = 0;
+  p.sources = p.tracks.map(t => {
+    const src = p.ctx.createBufferSource();
+    src.buffer = t.buffer; src.connect(t.gain);
+    src.start(p.ctx.currentTime + 0.05, p.offset);
+    return src;
+  });
+  p.startAt = p.ctx.currentTime + 0.05 - p.offset;
+  p.playing = true;
+  $('play').innerHTML = PAUSE;
+}
+
+function pause() {
+  const p = player;
+  p.offset = Math.min(Math.max(0, position()), p.duration);
+  p.sources.forEach(s => s.stop()); p.sources = [];
+  p.playing = false;
+  $('play').innerHTML = PLAY;
+}
+
+function togglePlay() { if (!player) return; player.playing ? pause() : play(); }
+
+function seek(sec) {
+  const was = player.playing;
+  if (was) pause();
+  player.offset = Math.max(0, Math.min(sec, player.duration));
+  if (was) play();
+}
+
+function stopPlayer() {
+  if (!player) return;
+  if (player.playing) player.sources.forEach(s => s.stop());
+  player.ctx.close();
+  player = null;
+}
+
+function tick() {
+  if (!player || !$('wave')) return;
+  let pos = position();
+  if (player.playing && pos >= player.duration) { pause(); player.offset = 0; pos = 0; }
+  pos = Math.max(0, pos);
+  $('cur').textContent = fmt(pos);
+  for (const t of player.tracks) {
+    t.vis += (effectiveGain(t) - t.vis) * 0.18;  // animação suave da onda ao ligar/desligar
+    let lvl = 0;
+    if (player.playing && t.on) {
+      t.analyser.getFloatTimeDomainData(player.scratch);
+      let sum = 0; for (const v of player.scratch) sum += v * v;
+      lvl = Math.min(1, Math.sqrt(sum / player.scratch.length) * 5);
+    }
+    t.lvl = Math.max(lvl, t.lvl * 0.88);
+    t.pad.style.setProperty('--lvl', t.lvl.toFixed(3));
+  }
+  drawWave(pos);
+  requestAnimationFrame(tick);
+}
+
+// ---------- transposição ----------
+let transposeTimer = null;
+
+function setTranspose(semitones, drums) {
+  player.semitones = Math.max(-12, Math.min(12, semitones));
+  player.transposeDrums = drums;
+  renderTranspose();
+  clearTimeout(transposeTimer);  // espera o usuário parar de clicar antes de processar
+  transposeTimer = setTimeout(reloadTransposed, 500);
+}
+
+function renderTranspose() {
+  const n = player.semitones;
+  $('semi').textContent = n > 0 ? `+${n}` : n;
+  $('semi').classList.toggle('changed', n !== 0);
+  $('semiDown').disabled = n <= -12;
+  $('semiUp').disabled = n >= 12;
+  $('drumsT').checked = player.transposeDrums;
+}
+
+async function reloadTransposed() {
+  const p = player, token = ++p.loadToken;
+  const want = p.tracks.map(t => stemSemitones(t.stem, p.semitones, p.transposeDrums));
+  if (want.every((n, i) => n === p.tracks[i].semitones)) return setTransposeStatus('');
+  setTransposeStatus(p.semitones ? 'Mudando o tom… (a primeira vez de cada tom leva alguns segundos)' : 'Voltando ao tom original…', true);
+  let buffers;
+  try {
+    buffers = await Promise.all(p.tracks.map((t, i) => want[i] === t.semitones ? t.buffer
+      : fetchBuffers(p.ctx, current.id, [t.stem], p.semitones, p.transposeDrums).then(b => b[0])));
+  } catch (e) {
+    if (player === p && token === p.loadToken) setTransposeStatus('Erro: ' + e.message);
+    return;
+  }
+  if (player !== p || token !== p.loadToken) return;  // o usuário mudou de música ou de tom
+  const was = p.playing, pos = position();
+  if (was) pause();
+  p.tracks.forEach((t, i) => { t.buffer = buffers[i]; t.semitones = want[i]; });
+  p.offset = Math.min(pos, p.duration);
+  if (was) play();
+  computePeaks();
+  setTransposeStatus('');
+}
+
+function setTransposeStatus(msg, busy) {
+  const el = $('semiStatus');
+  if (el) el.innerHTML = msg ? `${busy ? '<span class="spin"></span>' : ''}${esc(msg)}` : '';
+}
+
+// ---------- exportação ----------
+async function exportMix(format) {
+  const gains = Object.fromEntries(player.tracks.map(t => [t.stem, effectiveGain(t)]));
+  const btn = $(format === 'mp3' ? 'expMp3' : 'expWav');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch(`/api/songs/${current.id}/export`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gains, format, semitones: player.semitones, transpose_drums: player.transposeDrums }),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail);
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename\*=utf-8''([^;]+)/i) || cd.match(/filename="?([^";]+)/i);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await r.blob());
+    a.download = m ? decodeURIComponent(m[1]) : `mix.${format}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { alert('Erro ao exportar: ' + e.message); }
+  btn.disabled = false; btn.textContent = label;
+}
+
+// ---------- atalhos e início ----------
+document.addEventListener('keydown', e => {
+  if (!player || e.target.tagName === 'INPUT' && e.target.type !== 'range' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const n = +(/^(?:Digit|Numpad)(\d)$/.exec(e.code) || [])[1];
+  if (n >= 1 && n <= player.tracks.length) { const t = player.tracks[n - 1]; e.shiftKey ? solo(t) : toggle(t); }
+  else if (e.code === 'Space') togglePlay();
+  else if (e.key === 'ArrowLeft') seek(position() - 5);
+  else if (e.key === 'ArrowRight') seek(position() + 5);
+  else if (e.key === 'ArrowUp') setTranspose(player.semitones + 1, player.transposeDrums);
+  else if (e.key === 'ArrowDown') setTranspose(player.semitones - 1, player.transposeDrums);
+  else return;
+  e.preventDefault();
+});
+addEventListener('resize', () => player && computePeaks());
+// botões não guardam foco, senão o espaço "clicaria" neles além de dar play
+addEventListener('click', e => { const b = e.target.closest('button'); if (b) b.blur(); });
+
+(async () => {
+  LABELS = await (await fetch('/api/labels')).json();
+  await refresh();
+  const id = location.hash.slice(1);
+  if (id && songs.some(s => s.id === id)) openSong(id);
+})();
+</script>
+</body>
+</html>

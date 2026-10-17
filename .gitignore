@@ -1,0 +1,15 @@
+# ambiente e ferramentas (o instalador baixa tudo isso)
+.venv/
+python/
+ffmpeg/
+_downloads/
+__pycache__/
+*.pyc
+
+# modelos de IA (grandes demais para o GitHub; baixados pelo instalador / no primeiro uso)
+models/
+
+# músicas do usuário
+library/
+
+instalacao.log
